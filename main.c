@@ -15,80 +15,72 @@
  *
  ******************************************************************************
  */
-/*DELAY USING EXTERNAL TIM2 CODE FOR STM32F407-DISC1 MODEL*/
+/*DELAY USING SYSTICK CODE FOR STM32F407-DISC1 MODEL*/
 #include <stdint.h>
 #include "stm32f407xx.h"
 
-volatile uint32_t tim2_ms = 0;
+volatile uint32_t sys_ms = 0;
 
-/* ---------- LED INIT (PD13 – ORANGE LED) ---------- */
-void LED_Init(void)
+/* ---------------- GPIO INIT ---------------- */
+void led_Init(void)
 {
-    RCC->AHB1ENR |= (1U << 3);            // GPIOD clock
+    /* Enable GPIOD clock */
+    RCC->AHB1ENR |= (1U << 3);   // GPIODEN
+
+    /* PD12 as output */
     GPIOD->MODER &= ~(3U << (2 * 12));
-        GPIOD->MODER |=  (1U << (2 * 12));
-        GPIOD->MODER &= ~(3U << (2 * 13));
-        GPIOD->MODER |=  (1U << (2 * 13));
-        GPIOD->MODER &= ~(3U << (2 * 14));
-        GPIOD->MODER |=  (1U << (2 * 14));
-        GPIOD->MODER &= ~(3U << (2 * 15));
-        GPIOD->MODER |=  (1U << (2 * 15));
+    GPIOD->MODER |=  (1U << (2 * 12));
+    GPIOD->MODER &= ~(3U << (2 * 13));
+    GPIOD->MODER |=  (1U << (2 * 13));
+    GPIOD->MODER &= ~(3U << (2 * 14));
+    GPIOD->MODER |=  (1U << (2 * 14));
+    GPIOD->MODER &= ~(3U << (2 * 15));
+    GPIOD->MODER |=  (1U << (2 * 15));
 }
 
-/* ---------- TIM2 INIT (1ms interrupt) ---------- */
-void TIM2_Init(void)
+/* ---------------- SYSTICK INIT ---------------- */
+void SysTick_Init(void)
 {
-    RCC->APB1ENR |= (1 << 0);             // TIM2 clock
-
-    TIM2->PSC = 16000 - 1;                // 1 ms tick
-    TIM2->ARR = 1;                        // 1 ms period
-    TIM2->CNT = 0;
-
-    TIM2->EGR = 1;                        // Force update
-    TIM2->SR  = 0;                        // Clear flags
-
-    TIM2->DIER |= (1 << 0);               // Update interrupt
-    TIM2->CR1  |= (1 << 0);               // Enable timer
-
-    NVIC_EnableIRQ(TIM2_IRQn);
+    SysTick->LOAD = 16000 - 1;   // 1 ms @ 16 MHz
+    SysTick->VAL  = 0;
+    SysTick->CTRL = (1U << 0) |  // ENABLE
+                    (1U << 1) |  // TICKINT
+                    (1U << 2);   // CPU clock
 }
 
-/* ---------- DELAY ---------- */
+/* ---------------- SYSTICK ISR ---------------- */
+void SysTick_Handler(void)
+{
+    sys_ms++;
+}
+
+/* ---------------- DELAY ---------------- */
 void delay_ms(uint32_t ms)
 {
-    uint32_t start = tim2_ms;
-    while ((tim2_ms - start) < ms);
+    uint32_t start = sys_ms;
+    while ((sys_ms - start) < ms);
 }
 
-/* ---------- ISR ---------- */
-void TIM2_IRQHandler(void)
-{
-    if (TIM2->SR & 1)
-    {
-        TIM2->SR &= ~1;                   // Clear UIF
-        tim2_ms++;
-    }
-}
-
-/* ---------- MAIN ---------- */
+/* ---------------- MAIN ---------------- */
 int main(void)
 {
-    LED_Init();
-    TIM2_Init();
+    led_Init();
+    SysTick_Init();
 
     while (1)
     {
-    	GPIOD->ODR ^= (1U << 12);  // Toggle GREEN LED
-    	        delay_ms(500);
-    	        GPIOD->ODR ^= (1U << 12);
-    	        GPIOD->ODR ^= (1U << 13);  // Toggle GREEN LED
-    	         delay_ms(500);
-    	         GPIOD->ODR ^= (1U << 13);
-    			GPIOD->ODR ^= (1U << 14);  // Toggle GREEN LED
-    			delay_ms(500);
-    			GPIOD->ODR ^= (1U << 14);
-    			GPIOD->ODR ^= (1U << 15);  // Toggle GREEN LED
-    			delay_ms(500);
 
+        GPIOD->ODR ^= (1U << 12);  // Toggle GREEN LED
+        delay_ms(500);
+        GPIOD->ODR ^= (1U << 12);
+        GPIOD->ODR ^= (1U << 13);  // Toggle GREEN LED
+         delay_ms(500);
+         GPIOD->ODR ^= (1U << 13);
+		GPIOD->ODR ^= (1U << 14);  // Toggle GREEN LED
+		delay_ms(500);
+		GPIOD->ODR ^= (1U << 14);
+		GPIOD->ODR ^= (1U << 15);  // Toggle GREEN LED
+		delay_ms(500);
+		GPIOD->ODR ^= (1U << 15);
     }
 }
